@@ -328,7 +328,35 @@ module HLPTick3 =
     let horizLinePositions =
         fromList [-100..20..100]
         |> map (fun n -> middleOfSheet + {X=float n; Y=0.})
+    
+    let vertLinePositions =
+        fromList [-100..20..100]
+        |> map (fun n -> middleOfSheet + {X=0.; Y=float n})
+    
+    let generateXYPosFromInts (X:int) (Y:int) =
+        middleOfSheet + {X=float X; Y=float Y}
 
+    let getBoundingBox (topLeft:XYPos) (componentType: ComponentType) (label:string) = 
+        let (_,_,height,width) = Symbol.getComponentProperties componentType label
+        {
+        TopLeft = topLeft
+        W = width
+        H = height
+        }
+
+    let dFFbox = 
+        getBoundingBox middleOfSheet DFF "FF1"
+
+    let checkAndGateOverlap (pos:XYPos) = 
+        let andBox = getBoundingBox pos (GateN(And,2)) "G1"
+        not (BlockHelpers.overlap2DBox dFFbox andBox)
+
+    let gridPositions = 
+        let coordRange = fromList [-100..20..100]
+        let initGrid = product generateXYPosFromInts coordRange coordRange
+        let filteredGrid = filter checkAndGateOverlap initGrid
+        filteredGrid
+    
     /// demo test circuit consisting of a DFF & And gate
     let makeTest1Circuit (andPos:XYPos) =
         initSheetModel
@@ -348,7 +376,7 @@ module HLPTick3 =
     module Asserts =
 
         (* Each assertion function from this module has as inputs the sample number of the current test and the corresponding schematic sheet.
-           It returns a boolean indicating (true) that the test passes or 9false) that the test fails. The sample numbr is included to make it
+           It returns a boolean indicating (true) that the test passes or (false) that the test fails. The sample numbr is included to make it
            easy to document tests and so that any specific sampel schematic can easily be displayed using failOnSampleNumber. *)
 
         /// Ignore sheet and fail on the specified sample, useful for displaying a given sample
@@ -445,6 +473,16 @@ module HLPTick3 =
                 Asserts.failOnAllTests
                 dispatch
             |> recordPositionInTest testNum dispatch
+        
+        let routingTest testNum firstSample dispatch =
+            runTestOnSheets
+                "Grid Positioned AND + DFF: TESTING"
+                firstSample
+                gridPositions
+                makeTest1Circuit
+                Asserts.failOnSymbolIntersectsSymbol
+                dispatch
+            |> recordPositionInTest testNum dispatch
 
         /// List of tests available which can be run ftom Issie File Menu.
         /// The first 9 tests can also be run via Ctrl-n accelerator keys as shown on menu
@@ -456,8 +494,8 @@ module HLPTick3 =
                 "Test2", test2 // example
                 "Test3", test3 // example
                 "Test4", test4 
-                "Test5", fun _ _ _ -> printf "Test5" // dummy test - delete line or replace by real test as needed
-                "Test6", fun _ _ _ -> printf "Test6"
+                "Routing Test", routingTest // Test for part 7 - auto wire routing
+                "Test6", fun _ _ _ -> printf "Test6" // dummy test - delete line or replace by real test as needed
                 "Test7", fun _ _ _ -> printf "Test7"
                 "Test8", fun _ _ _ -> printf "Test8"
                 "Next Test Error", fun _ _ _ -> printf "Next Error:" // Go to the nexterror in a test

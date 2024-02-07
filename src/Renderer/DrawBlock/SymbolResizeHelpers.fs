@@ -57,7 +57,8 @@ let adjustPosForRotation
     let posOffset =
         match rotation with
         | Degree90 | Degree270 -> { X = (float)w/2.0 - (float) h/2.0 ;Y = (float) h/2.0 - (float)w/2.0 }
-        | _ ->  failwithf "Can't encounter Degree0 or Degree180 here in SymbolResizeHelpers/adjustPosForRotation function"
+        | _ -> {X=0;Y=0}
+        // | _ ->  failwithf "Can't encounter Degree0 here in SymbolResizeHelpers/adjustPosForRotation function"
     pos - posOffset
 
 
@@ -141,7 +142,7 @@ let flipSymbol (orientation: FlipType) (sym:Symbol) : Symbol =
         | FlipHorizontal -> sym
         | FlipVertical -> 
             sym
-            |> rotateSymbol Degree180)
+            |> rotateAntiClockByAng Degree180)
 
 let changeSymbolCorners showCorners sym = 
     set (appearance_ >-> showCorners_) showCorners sym

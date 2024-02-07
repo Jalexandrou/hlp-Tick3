@@ -319,53 +319,6 @@ module HLPTick3 =
                 | Ok sheet -> showSheetInIssieSchematic sheet dispatch
                 | Error mess -> ()
             result
-//--------------------------------------------------------------------------------------------------//
-//----------------------------------------Example Test Circuits using Gen<'a> samples---------------//
-//--------------------------------------------------------------------------------------------------//
-
-    open Builder
-    /// Sample data based on 11 equidistant points on a horizontal line
-    let horizLinePositions =
-        fromList [-100..20..100]
-        |> map (fun n -> middleOfSheet + {X=float n; Y=0.})
-    
-    let vertLinePositions =
-        fromList [-100..20..100]
-        |> map (fun n -> middleOfSheet + {X=0.; Y=float n})
-    
-    let generateXYPosFromInts (X:int) (Y:int) =
-        middleOfSheet + {X=float X; Y=float Y}
-
-    let getBoundingBox (topLeft:XYPos) (componentType: ComponentType) (label:string) = 
-        let (_,_,height,width) = Symbol.getComponentProperties componentType label
-        {
-        TopLeft = topLeft
-        W = width
-        H = height
-        }
-
-    let dFFbox = 
-        getBoundingBox middleOfSheet DFF "FF1"
-
-    let checkAndGateOverlap (pos:XYPos) = 
-        let andBox = getBoundingBox pos (GateN(And,2)) "G1"
-        not (BlockHelpers.overlap2DBox dFFbox andBox)
-
-    let gridPositions = 
-        let coordRange = fromList [-100..20..100]
-        let initGrid = product generateXYPosFromInts coordRange coordRange
-        let filteredGrid = filter checkAndGateOverlap initGrid
-        filteredGrid
-    
-    /// demo test circuit consisting of a DFF & And gate
-    let makeTest1Circuit (andPos:XYPos) =
-        initSheetModel
-        |> placeSymbol "G1" (GateN(And,2)) andPos
-        |> Result.bind (placeSymbol "FF1" DFF middleOfSheet)
-        |> Result.bind (placeWire (portOf "G1" 0) (portOf "FF1" 0))
-        |> Result.bind (placeWire (portOf "FF1" 0) (portOf "G1" 0) )
-        |> getOkOrFail
-
 
 
 //------------------------------------------------------------------------------------------------//
@@ -411,6 +364,44 @@ module HLPTick3 =
                          | false -> None)
 
 
+//--------------------------------------------------------------------------------------------------//
+//----------------------------------------Example Test Circuits using Gen<'a> samples---------------//
+//--------------------------------------------------------------------------------------------------//
+
+    open Builder
+    /// Sample data based on 11 equidistant points on a horizontal line
+    let horizLinePositions =
+        fromList [-100..20..100]
+        |> map (fun n -> middleOfSheet + {X=float n; Y=0.})
+    
+    let vertLinePositions =
+        fromList [-100..20..100]
+        |> map (fun n -> middleOfSheet + {X=0.; Y=float n})
+    
+    /// demo test circuit consisting of a DFF & And gate
+    let makeTest1Circuit (andPos:XYPos) =
+        initSheetModel
+        |> placeSymbol "G1" (GateN(And,2)) andPos
+        |> Result.bind (placeSymbol "FF1" DFF middleOfSheet)
+        |> Result.bind (placeWire (portOf "G1" 0) (portOf "FF1" 0))
+        |> Result.bind (placeWire (portOf "FF1" 0) (portOf "G1" 0) )
+        |> getOkOrFail
+    
+    let generateXYPosFromInts (X:int) (Y:int) =
+        middleOfSheet + {X=float X; Y=float Y}
+
+    let checkNoSymbolOverlap (andPos:XYPos) =
+        makeTest1Circuit andPos
+        |>  Asserts.failOnSymbolIntersectsSymbol 1 
+        |>  function
+            | None -> true
+            | Some _ -> false
+
+    let gridPositions = 
+        let coordRange = fromList [-100..19..100]
+        let initGrid = product generateXYPosFromInts coordRange coordRange
+        filter checkNoSymbolOverlap initGrid
+    
 
 //---------------------------------------------------------------------------------------//
 //-----------------------------Demo tests on Draw Block code-----------------------------//
@@ -476,11 +467,11 @@ module HLPTick3 =
         
         let routingTest testNum firstSample dispatch =
             runTestOnSheets
-                "Grid Positioned AND + DFF: TESTING"
+                "Grid Positioned AND + DFF: fail on wire intersects symbol"
                 firstSample
                 gridPositions
                 makeTest1Circuit
-                Asserts.failOnSymbolIntersectsSymbol
+                Asserts.failOnWireIntersectsSymbol
                 dispatch
             |> recordPositionInTest testNum dispatch
 
